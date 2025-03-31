@@ -1,126 +1,89 @@
+const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
+const app = express();
+const PORT = 3000;
+const MONGO_URI = 'mongodb://localhost:27017/studentDB';
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Define Student Schema
 const studentSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  age: {
-    type: Number,
-    required: true,
-    min: 5,
-    max: 30
-  },
-  grade: {
-    type: String,
-    required: true,
-    trim: true
-  }
-}, {
-  timestamps: true
+    name: { type: String, required: true },
+    age: { type: Number, required: true },
+    grade: { type: String, required: true }
 });
 
 const Student = mongoose.model('Student', studentSchema);
 
-module.exports = Student;
+// RESTful API Endpoints
 
-// Step 3: Create app.js (Main server file)
-const express = require('express');
-const mongoose = require('mongoose');
-const Student = require('./models/Student');
-
-// Initialize express app
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
-
-// Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/studentDB', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('Could not connect to MongoDB', err));
-
-// RESTful Routes
-
-// GET - Retrieve all students
+// Get all students
 app.get('/api/students', async (req, res) => {
-  try {
-    const students = await Student.find();
-    res.json(students);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+    try {
+        const students = await Student.find();
+        res.json(students);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
 });
 
-// GET - Retrieve a specific student by ID
+// Get student by ID
 app.get('/api/students/:id', async (req, res) => {
-  try {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+    try {
+        const student = await Student.findById(req.params.id);
+        if (!student) return res.status(404).json({ message: 'Student not found' });
+        res.json(student);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
-    res.json(student);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
 });
 
-// POST - Add a new student
+// Add a new student
 app.post('/api/students', async (req, res) => {
-  const student = new Student({
-    name: req.body.name,
-    age: req.body.age,
-    grade: req.body.grade
-  });
-
-  try {
-    const newStudent = await student.save();
-    res.status(201).json(newStudent);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
+    const { name, age, grade } = req.body;
+    const student = new Student({ name, age, grade });
+    try {
+        const newStudent = await student.save();
+        res.status(201).json(newStudent);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
 });
 
-// PUT - Update a student by ID
+// Update student by ID
 app.put('/api/students/:id', async (req, res) => {
-  try {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+    try {
+        const updatedStudent = await Student.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedStudent) return res.status(404).json({ message: 'Student not found' });
+        res.json(updatedStudent);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
     }
-    
-    if (req.body.name) student.name = req.body.name;
-    if (req.body.age) student.age = req.body.age;
-    if (req.body.grade) student.grade = req.body.grade;
-    
-    const updatedStudent = await student.save();
-    res.json(updatedStudent);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
 });
 
-// DELETE - Delete a student by ID
+// Delete student by ID
 app.delete('/api/students/:id', async (req, res) => {
-  try {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+    try {
+        const deletedStudent = await Student.findByIdAndDelete(req.params.id);
+        if (!deletedStudent) return res.status(404).json({ message: 'Student not found' });
+        res.json({ message: 'Student deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
-    
-    await Student.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Student deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
 });
 
-// Start the server
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
 });
